@@ -45,7 +45,8 @@ def create(game):
     mat.ambient = gl.col3f('pink')
     mat.diffuse = gl.col3f('white')
     mat.specular = gl.col3f('white')
-    mesh = gl.Spheref(gl.vec3f(0), 1)
+    mat.opacity = .5
+    mesh = gl.Spheref(gl.vec3f(0), 1).drawable(game.renderer)
     light = game.renderer.new_light(
         gl.PointLightInfo(
             gl.vec3f(0, 2, -1),
