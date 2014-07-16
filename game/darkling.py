@@ -2,7 +2,7 @@
 from cube import gl, units
 
 import cubeapp.game
-from cubeapp.game.entity.component import Transform, View
+from cubeapp.game.entity.component import Transform, Drawable, Bindable
 
 def create(game, x, z):
     mat = gl.Material('player')
@@ -14,14 +14,10 @@ def create(game, x, z):
 
     mesh = gl.Spheref(gl.vec3f(0), 1).drawable(game.renderer)
 
-    return game.entity_manager.add(
-        'Darkling',
-        Transform,
-        (View, {'parent_node': 'transform.node'}),
-        view = {
-            'contents': (mat, mesh),
-        },
-        transform = {
-            'transformation': gl.matrix.translate(gl.mat4f(), gl.vec3f(x, 1, z))
-        },
+    entity = game.entity_manager.create('Darkling')
+    transform = entity.add_component(
+        Transform(gl.matrix.translate(gl.mat4f(), gl.vec3f(x, 1, z)))
     )
+    entity.add_component(Bindable(mat))
+    entity.add_component(Drawable(mesh))
+    return entity

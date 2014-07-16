@@ -47,22 +47,23 @@ def create(game):
             gl.Color3f("#333"),
         )
     )
-    return game.entity_manager.add(
-        'ground',
-        cubeapp.game.entity.component.Transform,
-        (cubeapp.game.entity.component.View, {'parent_node': 'transform.node'}),
-        transform = {
-            'transformation':
-                gl.matrix.rotate(
-                    gl.matrix.translate(
-                        gl.matrix.scale(gl.mat4f(), gl.vec3f(20)),
-                        gl.vec3f(-.5, 0, 0)
-                    ),
-                    units.deg(-90),
-                    gl.vec3f(1, 0, 0)
-                )
-        },
-        view = {
-            'contents': (mat, mesh),
-        },
+    ground = game.entity_manager.create("ground")
+    ground.add_component(
+        cubeapp.game.entity.component.Transform(
+            gl.matrix.rotate(
+                gl.matrix.translate(
+                    gl.matrix.scale(gl.mat4f(), gl.vec3f(20)),
+                    gl.vec3f(-.5, 0, 0)
+                ),
+                units.deg(-90),
+                gl.vec3f(1, 0, 0)
+            )
+        )
     )
+    ground.add_component(
+        cubeapp.game.entity.component.Bindable(mat)
+    )
+    ground.add_component(
+        cubeapp.game.entity.component.Drawable(mesh)
+    )
+    return ground
