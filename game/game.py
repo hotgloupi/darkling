@@ -4,6 +4,7 @@ from cube.system.inputs import KeySym
 from . import player
 from . import ground
 from . import darkling
+from . import world
 
 import cubeapp.game
 from cubeapp.game.entity.component import Controller
@@ -11,7 +12,7 @@ from cubeapp.game.event import Channel, Event
 
 class CameraController:
 
-    def __init__(self, cam, velocity = 10):
+    def __init__(self, cam, velocity = 20):
         super().__init__()
         self.move_left =  Channel(dir = gl.vec3f(-1, 0, 0))
         self.move_right = Channel(dir = gl.vec3f(1, 0, 0))
@@ -26,12 +27,8 @@ class CameraController:
         self.camera = cam
         self.velocity = velocity
 
-
     def __call__(self, ev, elapsed):
         self.camera.move(ev.channel.dir * elapsed * self.velocity)
-        pass
-        #self.entity.component('position').node.translate(ev.channel.dir)
-        #self.entity.component('light').content.point.position += ev.channel.dir
 
 class Game(cubeapp.game.Game):
 
@@ -48,6 +45,7 @@ class Game(cubeapp.game.Game):
         super().__init__(window, directory, bindings = self.bindings)
         self.ground = ground.create(self)
         self.player = player.create(self)
+        self.world = world.create(self)
         self.darklings = [
             darkling.create(self, x, y) for x, y in [
                 (-5, 0),
@@ -64,6 +62,13 @@ class Game(cubeapp.game.Game):
         )
         self.__bind_camera_controls()
         self.scene_view = self.scene.drawable(self.renderer)
+
+    def __del__(self):
+        del self.scene_view
+        del self.camera
+        del self.player
+        del self.darklings
+        del self.ground
 
     def __bind_camera_controls(self):
         camera_controller = CameraController(self.camera)
