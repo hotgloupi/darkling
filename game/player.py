@@ -32,7 +32,7 @@ def create(game):
     player.add_component(Bindable(light, name = 'light'))
     player.add_component(Bindable(mat, name = 'material'))
     player.add_component(Drawable(mesh))
-    def change_colors(ev, delta):
-        mat.ambiant = rand_color()
-    player.add_component(Controller(change_colors, ['tick']))
+    #def change_colors(ev, delta):
+    #    mat.ambiant = rand_color()
+    #player.add_component(Controller(change_colors, ['tick']))
     return player
