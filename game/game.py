@@ -58,7 +58,7 @@ class Game(cubeapp.game.Game):
         self.camera.position = gl.vec3f(.5, 10, 10)
         self.camera.look_at(gl.vec3f(0, 0, -10))
         self.camera.init_frustum(
-            units.deg(45), self.window.width / self.window.height, 0.005, 300.0
+            units.deg(45), self.window.width / self.window.height, 0.005, 30.0
         )
         self.__bind_camera_controls()
         self.scene_view = self.scene.drawable(self.renderer)
