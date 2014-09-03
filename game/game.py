@@ -39,14 +39,14 @@ class WorldController:
         self.del_channel = del_channel
         self.channels = [add_channel, del_channel]
         mat1 = gl.Material('ground')
-        mat1.ambient = gl.col3f('#aa4587')
+        mat1.ambient = gl.col3f('pink')
         mat2 = gl.Material('ground')
-        mat2.ambient = gl.col3f('#222245')
-        #mat.diffuse = gl.col3f('brown')
-        #mat.specular = gl.col3f('gray')
-        #mat.shininess = 1000
-        #mat.shading_model = gl.material.ShadingModel.gouraud
-        #mat.add_texture(
+        mat2.ambient = gl.col3f('blue')
+        #mat2.diffuse = gl.col3f('brown')
+        #mat2.specular = gl.col3f('gray')
+        #mat2.shininess = 1000
+        #mat2.shading_model = gl.material.ShadingModel.gouraud
+        #mat2.add_texture(
         #    "ground.bmp",
         #    gl.TextureType.ambient,
         #    gl.TextureMapping.uv,
@@ -89,7 +89,7 @@ class WorldController:
             self.remove(ev.chunk)
 
     def add(self, chunk):
-        if  chunk.node.size > 2: return
+        if  chunk.node.size > 8: return
         if chunk.node.origin.y != 0: return
         entity = self.game.entity_manager.create("chunk")
         entity.add_component(
@@ -98,12 +98,12 @@ class WorldController:
                     gl.matrix.translate(
                         gl.mat4f(),
                         gl.vec3f(
-                            chunk.node.origin.x * chunk.size * chunk.node.size,
-                            chunk.node.origin.y * chunk.size * chunk.node.size,
-                            chunk.node.origin.z * chunk.size * chunk.node.size
+                            chunk.node.origin.x * chunk.size,
+                            chunk.node.origin.y * chunk.size,
+                            chunk.node.origin.z * chunk.size
                         )
                     )
-                    , gl.vec3f(chunk.size * chunk.node.size * 2)
+                    , gl.vec3f(chunk.size * chunk.node.size)
                 )
             )
                 #gl.matrix.rotate(
@@ -156,7 +156,7 @@ class Game(cubeapp.game.Game):
         ]
         self.camera = gl.Camera()
         self.camera.position = gl.vec3f(.5, 10, 10)
-        self.camera.look_at(gl.vec3f(0, 0, -10))
+        self.camera.look_at(gl.vec3f(0, 0, -40))
         self.camera.init_frustum(
             units.deg(45), self.window.width / self.window.height, 0.005, 300.0
         )
