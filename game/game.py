@@ -1,5 +1,5 @@
-from cube import gl, gui, units
-from cube.system.inputs import KeySym
+from cube import gl, gui, units, log
+from cube.system.inputs import KeySym, KeyMod
 
 from . import player
 from . import ground
@@ -10,26 +10,39 @@ from cubeapp.game.entity.component import Controller, Transform, Bindable, Drawa
 from cubeapp.game.event import Channel, Event
 import cubeapp.world
 
+import pathlib
+import time
+
 class CameraController:
 
     def __init__(self, cam, velocity = 40):
         super().__init__()
         self.move_left =  Channel(dir = gl.vec3f(-1, 0, 0))
         self.move_right = Channel(dir = gl.vec3f(1, 0, 0))
-        self.move_up =    Channel(dir = gl.vec3f(0, 0, -1))
-        self.move_down =  Channel(dir = gl.vec3f(0, 0, 1))
+        self.move_forward =    Channel(dir = gl.vec3f(0, 0, -1))
+        self.move_backward =  Channel(dir = gl.vec3f(0, 0, 1))
+        self.move_up =    Channel(dir = gl.vec3f(0, 1, 0))
+        self.move_down =  Channel(dir = gl.vec3f(0, -1, 0))
         self.channels = [
             self.move_left,
             self.move_right,
             self.move_up,
             self.move_down,
+            self.move_forward,
+            self.move_backward,
+            Channel('tick'),
         ]
         self.camera = cam
         self.velocity = velocity
+        self.dir = gl.vec3f()
 
     def __call__(self, ev, elapsed):
-        self.camera.move(ev.channel.dir * elapsed * self.velocity)
-
+        if ev.channel == 'tick':
+            if self.dir:
+                self.camera.move(self.dir * elapsed * self.velocity)
+                self.dir = self.dir * .8
+        else:
+            self.dir = gl.vector.normalize(self.dir + ev.channel.dir)
 
 class WorldController:
 
@@ -39,21 +52,33 @@ class WorldController:
         self.del_channel = del_channel
         self.channels = [add_channel, del_channel]
         mat1 = gl.Material('ground')
-        mat1.ambient = gl.col3f('pink')
+        mat1.ambient = gl.col3f('#200')
+        mat1.diffuse = gl.col3f('brown')
+        mat1.specular = gl.col3f('gray')
+        mat1.shininess = 1000
+        mat1.shading_model = gl.material.ShadingModel.gouraud
+        mat1.add_texture(
+            "ground.bmp",
+            gl.TextureType.ambient,
+            gl.TextureMapping.uv,
+            gl.StackOperation.add,
+            gl.TextureMapMode.wrap,
+            gl.BlendMode.basic
+        )
         mat2 = gl.Material('ground')
-        mat2.ambient = gl.col3f('blue')
-        #mat2.diffuse = gl.col3f('brown')
-        #mat2.specular = gl.col3f('gray')
-        #mat2.shininess = 1000
-        #mat2.shading_model = gl.material.ShadingModel.gouraud
-        #mat2.add_texture(
-        #    "ground.bmp",
-        #    gl.TextureType.ambient,
-        #    gl.TextureMapping.uv,
-        #    gl.StackOperation.add,
-        #    gl.TextureMapMode.wrap,
-        #    gl.BlendMode.basic
-        #)
+        mat2.ambient = gl.col3f('#022')
+        mat2.diffuse = gl.col3f('brown')
+        mat2.specular = gl.col3f('gray')
+        mat2.shininess = 1000
+        mat2.shading_model = gl.material.ShadingModel.gouraud
+        mat2.add_texture(
+            "ground.bmp",
+            gl.TextureType.ambient,
+            gl.TextureMapping.uv,
+            gl.StackOperation.add,
+            gl.TextureMapMode.wrap,
+            gl.BlendMode.basic
+        )
         self.material1 = mat1.bindable(game.renderer)
         self.material2 = mat2.bindable(game.renderer)
         mesh = gl.Mesh()
@@ -89,7 +114,7 @@ class WorldController:
             self.remove(ev.chunk)
 
     def add(self, chunk):
-        if  chunk.node.size > 8: return
+        #if  chunk.node.size > 64: return
         if chunk.node.origin.y != 0: return
         entity = self.game.entity_manager.create("chunk")
         entity.add_component(
@@ -103,7 +128,7 @@ class WorldController:
                             chunk.node.origin.z * chunk.size
                         )
                     )
-                    , gl.vec3f(chunk.size * chunk.node.size)
+                    , gl.vec3f(chunk.node.size * chunk.size)
                 )
             )
                 #gl.matrix.rotate(
@@ -135,10 +160,12 @@ class Game(cubeapp.game.Game):
 
     bindings = {
         'keyboard': {
-            'up': KeySym.up,
-            'down': KeySym.down,
+            'forward': KeySym.up,
+            'backward': KeySym.down,
             'left': KeySym.left,
             'right': KeySym.right,
+            'up': (KeySym.up, KeyMod.ctrl),
+            'down': (KeySym.down, KeyMod.ctrl),
         },
     }
 
@@ -182,15 +209,17 @@ class Game(cubeapp.game.Game):
         for slot, chan in (
             (kb.up.key_held,    camera_controller.move_up),
             (kb.down.key_held,  camera_controller.move_down),
+            (kb.forward.key_held,    camera_controller.move_forward),
+            (kb.backward.key_held,  camera_controller.move_backward),
             (kb.left.key_held,  camera_controller.move_left),
             (kb.right.key_held, camera_controller.move_right),
         ):
             self.__bind_slot(slot, chan)
 
     def __bind_slot(self, slot, chan):
-        slot.connect(
-            lambda _: self.event_manager.push(Event(chan))
-        )
+        def f(ev):
+            self.event_manager.push(Event(chan))
+        slot.connect(f)
 
     def shutdown(self):
         super().shutdown()
@@ -198,12 +227,15 @@ class Game(cubeapp.game.Game):
         self.world = None
 
     def render(self):
+        start = time.time()
         with self.renderer.begin(gl.mode_3d) as painter:
             with painter.bind([self.camera]):
                 painter.draw([self.scene_view])
+        #log.info('render time %.2f ms' % ((time.time() - start) * 1000))
 
 
     def update(self, delta):
+        start = time.time()
         super().update(delta)
         self.world.update(self.camera, self.referential)
         to_remove, to_add = self.world.poll()
@@ -211,3 +243,4 @@ class Game(cubeapp.game.Game):
             self.event_manager.push(Event(self.__remove_chunk, chunk = chunk))
         for chunk in to_add:
             self.event_manager.push(Event(self.__add_chunk, chunk = chunk))
+        #log.info('update time %.2f ms' % ((time.time() - start) * 1000))
