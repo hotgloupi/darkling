@@ -12,7 +12,7 @@ import cubeapp.world
 
 class CameraController:
 
-    def __init__(self, cam, velocity = 20):
+    def __init__(self, cam, velocity = 40):
         super().__init__()
         self.move_left =  Channel(dir = gl.vec3f(-1, 0, 0))
         self.move_right = Channel(dir = gl.vec3f(1, 0, 0))
@@ -121,15 +121,15 @@ class WorldController:
             entity.add_component(Bindable(self.material2))
         entity.add_component(Drawable(self.mesh))
         self.entities[chunk.node] = entity
-        print("ADD", chunk)
+        #print("ADD", chunk)
 
     def remove(self, chunk):
-        print("REMOVE", chunk)
+        #print("REMOVE", chunk)
         if chunk.node in self.entities:
             self.entities[chunk.node].destroy()
             del self.entities[chunk.node]
-        else:
-            print("Unknown chunk", chunk)
+        #else:
+        #    print("Unknown chunk", chunk)
 
 class Game(cubeapp.game.Game):
 
