@@ -194,7 +194,26 @@ class Game(cubeapp.game.Game):
         self.event_manager.add(WorldController(self, self.__add_chunk, self.__remove_chunk))
         self.world = cubeapp.world.World(self.renderer)
         self.referential = cubeapp.world.world.coord_type()
+        self.__has_focus = False
+        self.window.inputs.on_mousedown.connect(self.__enter)
         self.world.start(self.camera, self.referential)
+        self.__enter()
+
+
+    def __enter(self, *args):
+        if self.__has_focus:
+            return
+        self.__has_focus = True
+        self.window.system_window.confine_mouse(True)
+
+    def _on_quit(self):
+        if self.__has_focus:
+            self.window.system_window.confine_mouse(False)
+            def disable_focus(elapsed):
+                self.__has_focus = False
+            self.event_manager.call_later(disable_focus, .5)
+        else:
+            super()._on_quit()
 
     def __del__(self):
         del self.scene_view
@@ -217,8 +236,7 @@ class Game(cubeapp.game.Game):
             self.__bind_slot(slot, chan)
 
     def __bind_slot(self, slot, chan):
-        def f(ev):
-            self.event_manager.push(Event(chan))
+        def f(ev): self.event_manager.push(Event(chan))
         slot.connect(f)
 
     def shutdown(self):
@@ -236,7 +254,6 @@ class Game(cubeapp.game.Game):
 
     def update(self, delta):
         start = time.time()
-        super().update(delta)
         self.world.update(self.camera, self.referential)
         to_remove, to_add = self.world.poll()
         for chunk in to_remove:
@@ -244,3 +261,4 @@ class Game(cubeapp.game.Game):
         for chunk in to_add:
             self.event_manager.push(Event(self.__add_chunk, chunk = chunk))
         #log.info('update time %.2f ms' % ((time.time() - start) * 1000))
+        super().update(delta)
