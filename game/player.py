@@ -17,7 +17,7 @@ def create(game):
     mesh = gl.Spheref(gl.vec3f(0), 1).drawable(game.renderer)
     light = game.renderer.new_light(
         gl.PointLightInfo(
-            gl.vec3f(0, 2, -1),
+            gl.vec3f(0, 8, -1),
             gl.Color3f("#888"),
             gl.Color3f("#333"),
         )

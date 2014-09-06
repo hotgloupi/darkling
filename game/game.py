@@ -15,14 +15,15 @@ import time
 
 class CameraController:
 
-    def __init__(self, cam, velocity = 40):
+    def __init__(self, cam, mouse, velocity = 40):
         super().__init__()
-        self.move_left =  Channel(dir = gl.vec3f(-1, 0, 0))
-        self.move_right = Channel(dir = gl.vec3f(1, 0, 0))
-        self.move_forward =    Channel(dir = gl.vec3f(0, 0, -1))
-        self.move_backward =  Channel(dir = gl.vec3f(0, 0, 1))
+        self.move_left =  Channel()
+        self.move_right = Channel()
+        self.move_forward =    Channel()
+        self.move_backward =  Channel()
         self.move_up =    Channel(dir = gl.vec3f(0, 1, 0))
         self.move_down =  Channel(dir = gl.vec3f(0, -1, 0))
+        self.mouse_move = Channel()
         self.channels = [
             self.move_left,
             self.move_right,
@@ -30,9 +31,11 @@ class CameraController:
             self.move_down,
             self.move_forward,
             self.move_backward,
+            self.mouse_move,
             Channel('tick'),
         ]
         self.camera = cam
+        self.mouse = mouse
         self.velocity = velocity
         self.dir = gl.vec3f()
 
@@ -41,8 +44,23 @@ class CameraController:
             if self.dir:
                 self.camera.move(self.dir * elapsed * self.velocity)
                 self.dir = self.dir * .8
+            self.camera.rotate(units.deg(self.mouse.yrel / 10), self.camera.right)
+            self.camera.rotate(units.deg(self.mouse.xrel / 10), gl.vec3f(0, 1, 0))
         else:
-            self.dir = gl.vector.normalize(self.dir + ev.channel.dir)
+            if hasattr(ev.channel, 'dir'):
+                dir = ev.channel.dir
+            else:
+                if ev.channel == self.move_left:
+                    dir = -self.camera.right
+                elif ev.channel == self.move_right:
+                    dir = self.camera.right
+                elif ev.channel == self.move_forward:
+                    dir = self.camera.front
+                elif ev.channel == self.move_backward:
+                    dir = -self.camera.front
+                dir.y = 0
+            self.dir = gl.vector.normalize(self.dir + dir)
+
 
 class WorldController:
 
@@ -51,14 +69,25 @@ class WorldController:
         self.add_channel = add_channel
         self.del_channel = del_channel
         self.channels = [add_channel, del_channel]
+
+        tex = game.renderer.new_texture(
+            game.renderer.resource_manager.load(
+                gl.Surface,
+                pathlib.Path("ground.bmp")
+            )
+        )
+        tex.generate_mipmap()
+        tex.min_filter_bilinear(gl.TextureFilter.linear)
+        tex.mag_filter(gl.TextureFilter.linear)
+
         mat1 = gl.Material('ground')
-        mat1.ambient = gl.col3f('#200')
+        mat1.ambient = gl.col3f('#111')
         mat1.diffuse = gl.col3f('brown')
-        mat1.specular = gl.col3f('gray')
-        mat1.shininess = 1000
+        mat1.specular = gl.col3f('red')
+        mat1.shininess = 1
         mat1.shading_model = gl.material.ShadingModel.gouraud
         mat1.add_texture(
-            "ground.bmp",
+            tex,
             gl.TextureType.ambient,
             gl.TextureMapping.uv,
             gl.StackOperation.add,
@@ -66,13 +95,13 @@ class WorldController:
             gl.BlendMode.basic
         )
         mat2 = gl.Material('ground')
-        mat2.ambient = gl.col3f('#022')
+        mat2.ambient = gl.col3f('#111')
         mat2.diffuse = gl.col3f('brown')
-        mat2.specular = gl.col3f('gray')
-        mat2.shininess = 1000
+        mat2.specular = gl.col3f('red')
+        mat2.shininess = 1
         mat2.shading_model = gl.material.ShadingModel.gouraud
         mat2.add_texture(
-            "ground.bmp",
+            tex,
             gl.TextureType.ambient,
             gl.TextureMapping.uv,
             gl.StackOperation.add,
@@ -83,7 +112,7 @@ class WorldController:
         self.material2 = mat2.bindable(game.renderer)
         mesh = gl.Mesh()
         mesh.mode = gl.DrawMode.quads
-        size = 40
+        size = 16
         step = 1.0 / size
         for i in (i / size for i in range(size)):
             x = i
@@ -196,8 +225,8 @@ class Game(cubeapp.game.Game):
         self.referential = cubeapp.world.world.coord_type()
         self.__has_focus = False
         self.window.inputs.on_mousedown.connect(self.__enter)
-        self.world.start(self.camera, self.referential)
         self.__enter()
+        self.world.start(self.camera, self.referential)
 
 
     def __enter(self, *args):
@@ -222,7 +251,7 @@ class Game(cubeapp.game.Game):
         del self.darklings
 
     def __bind_camera_controls(self):
-        camera_controller = CameraController(self.camera)
+        camera_controller = CameraController(self.camera, self.input_translator.mouse)
         self.event_manager.add(camera_controller)
         kb = self.input_translator.keyboard
         for slot, chan in (
