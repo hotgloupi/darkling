@@ -62,129 +62,6 @@ class CameraController:
             self.dir = gl.vector.normalize(self.dir + dir)
 
 
-class WorldController:
-
-    def __init__(self, game, add_channel, del_channel):
-        self.game = game
-        self.add_channel = add_channel
-        self.del_channel = del_channel
-        self.channels = [add_channel, del_channel]
-
-        tex = game.renderer.new_texture(
-            game.renderer.resource_manager.load(
-                gl.Surface,
-                pathlib.Path("ground.bmp")
-            )
-        )
-        tex.generate_mipmap()
-        tex.min_filter_bilinear(gl.TextureFilter.linear)
-        tex.mag_filter(gl.TextureFilter.linear)
-
-        mat1 = gl.Material('ground')
-        mat1.ambient = gl.col3f('#111')
-        mat1.diffuse = gl.col3f('brown')
-        mat1.specular = gl.col3f('red')
-        mat1.shininess = 1
-        mat1.shading_model = gl.material.ShadingModel.gouraud
-        mat1.add_texture(
-            tex,
-            gl.TextureType.ambient,
-            gl.TextureMapping.uv,
-            gl.StackOperation.add,
-            gl.TextureMapMode.wrap,
-            gl.BlendMode.basic
-        )
-        mat2 = gl.Material('ground')
-        mat2.ambient = gl.col3f('#111')
-        mat2.diffuse = gl.col3f('brown')
-        mat2.specular = gl.col3f('red')
-        mat2.shininess = 1
-        mat2.shading_model = gl.material.ShadingModel.gouraud
-        mat2.add_texture(
-            tex,
-            gl.TextureType.ambient,
-            gl.TextureMapping.uv,
-            gl.StackOperation.add,
-            gl.TextureMapMode.wrap,
-            gl.BlendMode.basic
-        )
-        self.material1 = mat1.bindable(game.renderer)
-        self.material2 = mat2.bindable(game.renderer)
-        mesh = gl.Mesh()
-        mesh.mode = gl.DrawMode.quads
-        size = 16
-        step = 1.0 / size
-        for i in (i / size for i in range(size)):
-            x = i
-            for j in (i / size for i in range(size)):
-                y = 1.0 - j
-                mesh.kind = gl.ContentKind.vertex
-                mesh.append(gl.vec3f(x, 0, y - step))
-                mesh.append(gl.vec3f(x, 0, y))
-                mesh.append(gl.vec3f(x + step, 0, y))
-                mesh.append(gl.vec3f(x + step, 0, y - step))
-                mesh.kind = gl.ContentKind.tex_coord0
-                mesh.append(gl.vec2f(i, j + step))
-                mesh.append(gl.vec2f(i + step, j + step))
-                mesh.append(gl.vec2f(i + step, j))
-                mesh.append(gl.vec2f(i, j))
-                mesh.kind = gl.ContentKind.normal
-                mesh.append(gl.vec3f(0, 1, 0))
-                mesh.append(gl.vec3f(0, 1, 0))
-                mesh.append(gl.vec3f(0, 1, 0))
-                mesh.append(gl.vec3f(0, 1, 0))
-        self.mesh = mesh.drawable(game.renderer)
-        self.entities = {}
-
-    def __call__(self, ev, elapsed):
-        if ev.channel == self.add_channel:
-            self.add(ev.chunk)
-        elif ev.channel == self.del_channel:
-            self.remove(ev.chunk)
-
-    def add(self, chunk):
-        #if  chunk.node.size > 64: return
-        if chunk.node.origin.y != 0: return
-        entity = self.game.entity_manager.create("chunk")
-        entity.add_component(
-            Transform(
-                gl.matrix.scale(
-                    gl.matrix.translate(
-                        gl.mat4f(),
-                        gl.vec3f(
-                            chunk.node.origin.x * chunk.size,
-                            chunk.node.origin.y * chunk.size,
-                            chunk.node.origin.z * chunk.size
-                        )
-                    )
-                    , gl.vec3f(chunk.node.size * chunk.size)
-                )
-            )
-                #gl.matrix.rotate(
-                #    gl.matrix.translate(
-                #        gl.matrix.scale(gl.mat4f(), gl.vec3f(20)),
-                #        gl.vec3f(-.5, 0, 0)
-                #    ),
-                #    units.deg(-90),
-                #    gl.vec3f(1, 0, 0)
-                #)
-        )
-        if chunk.node.size == 1:
-            entity.add_component(Bindable(self.material1))
-        else:
-            entity.add_component(Bindable(self.material2))
-        entity.add_component(Drawable(self.mesh))
-        self.entities[chunk.node] = entity
-        #print("ADD", chunk)
-
-    def remove(self, chunk):
-        #print("REMOVE", chunk)
-        if chunk.node in self.entities:
-            self.entities[chunk.node].destroy()
-            del self.entities[chunk.node]
-        #else:
-        #    print("Unknown chunk", chunk)
-
 class Game(cubeapp.game.Game):
 
     bindings = {
@@ -218,10 +95,11 @@ class Game(cubeapp.game.Game):
         )
         self.__bind_camera_controls()
         self.scene_view = self.scene.drawable(self.renderer)
-        self.__remove_chunk = Channel()
-        self.__add_chunk = Channel()
-        self.event_manager.add(WorldController(self, self.__add_chunk, self.__remove_chunk))
-        self.world = cubeapp.world.World(self.renderer)
+        self.world = cubeapp.world.World(
+            storage = cubeapp.world.Storage(),
+            generator = cubeapp.world.Generator(),
+            renderer = cubeapp.world.Renderer(self.renderer),
+        )
         self.referential = cubeapp.world.world.coord_type()
         self.__has_focus = False
         self.window.inputs.on_mousedown.connect(self.__enter)
@@ -277,17 +155,24 @@ class Game(cubeapp.game.Game):
         start = time.time()
         with self.renderer.begin(gl.mode_3d) as painter:
             with painter.bind([self.camera]):
+                self.world.render(painter)
                 painter.draw([self.scene_view])
         #log.info('render time %.2f ms' % ((time.time() - start) * 1000))
 
 
     def update(self, delta):
         start = time.time()
+        diff = self.camera.position / cubeapp.world.Chunk.size
+        int_diff = cubeapp.world.world.coord_type(
+            diff.x, diff.y, diff.z
+        )
+        #self.referential += int_diff
+        self.referential = int_diff
+        #self.camera.position -= gl.vec3f(
+        #    int_diff.x, int_diff.y, int_diff.z
+        #) * cubeapp.world.Chunk.size
+
         self.world.update(self.camera, self.referential)
-        to_remove, to_add = self.world.poll()
-        for chunk in to_remove:
-            self.event_manager.push(Event(self.__remove_chunk, chunk = chunk))
-        for chunk in to_add:
-            self.event_manager.push(Event(self.__add_chunk, chunk = chunk))
         #log.info('update time %.2f ms' % ((time.time() - start) * 1000))
+        #print(self.scene.graph.root.children)
         super().update(delta)
